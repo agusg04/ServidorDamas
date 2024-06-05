@@ -95,7 +95,7 @@ public class ConexionCliente implements Runnable{
                     case 5:
                         //Enviar partidas por terminar donde sea su turno
                         //orden;
-                        enviarTexto();
+                        ///////////////////enviarTexto();
                         enviarObjeto(datosUsuario.getPartidasMiTurno());
                         break;
 
