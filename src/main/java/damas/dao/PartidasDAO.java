@@ -13,4 +13,5 @@ public interface PartidasDAO {
     void rendirseEnPartidaBD(int idPartida);
     void insertarMovimientoBD(int idPartida, int idUsuario, int posXini, int posYini, int posXfin, int posYfin);
     boolean comprobarTurno(int idPartida, int idUsuario);
+    ColorPieza comprobarColor(int idPartida, int idUsuario);
 }

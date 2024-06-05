@@ -88,7 +88,7 @@ public class ConexionCliente implements Runnable{
                     case 4:
                         //Capturar ficha
                         //orden;idPartida;coordenadaXorigen;coordenadaYorigen;coordenadaXdestino;coordenadaYdestino;
-                        //////////////////////enviarBoolean(gestorJuego.capturarFicha());
+                        enviarBoolean(gestorJuego.capturarFicha());
                         datosUsuario.setPartidasNoMiTurno(gestorJuego.devolverPartidasNoMiTurno(getIdUsuario()));
                         break;
 
@@ -109,18 +109,12 @@ public class ConexionCliente implements Runnable{
                         throw new AssertionError();
                 }
             }
-            }
-
-
-
-
-
-
+        }
     }
 
     private void realizarLoginORegistro() {
         boolean exitoso = false;
-        String[] partes = null;
+        String[] partes;
 
         while (!exitoso && socketCliente.isConnected()) {
             String nombreYContra = leerTexto();

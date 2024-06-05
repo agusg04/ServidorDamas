@@ -273,4 +273,22 @@ public class PartidasDAOImpl implements PartidasDAO {
 		}
 		return -1; // Valor por defecto si no se encuentra el tamaño de la partida
 	}
+
+	@Override
+	public ColorPieza comprobarColor(int idPartida, int idUsuario) {
+		String sql = "SELECT color FROM usuarios_partidas WHERE id_partida = ? AND id_usuario = ?";
+		try (Connection connection = ConexionBD.obtenerConexion();
+			 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+			preparedStatement.setInt(1, idPartida);
+			ResultSet rsColor = preparedStatement.executeQuery();
+			if (rsColor.next()) {
+				return ColorPieza.valueOf(rsColor.getString("color"));
+
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return null; // Valor por defecto si no se encuentra el color del jugador
+	}
 }
