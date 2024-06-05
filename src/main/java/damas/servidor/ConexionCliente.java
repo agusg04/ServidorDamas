@@ -1,8 +1,8 @@
 package damas.servidor;
-
-import damas.modelo.Partida;
-import damas.modelo.Tablero;
+ 
 import damas.datos.DatosUsuario;
+import modelo.*;
+
 
 import java.io.*;
 import java.net.Socket;
@@ -12,8 +12,8 @@ import java.util.Random;
 public class ConexionCliente implements Runnable{
     private final Socket socketCliente;
     private final GestorJuego gestorJuego;
-    private ObjectInputStream objetoEntrada;
-    private ObjectOutputStream objetoSalida;
+    private ObjectInputStream flujoEntrada;
+    private ObjectOutputStream flujoSalida;
 
     private DatosUsuario datosUsuario;
 
@@ -29,8 +29,8 @@ public class ConexionCliente implements Runnable{
     @Override
     public void run() {
         try {
-            objetoEntrada = new ObjectInputStream(socketCliente.getInputStream());
-            objetoSalida = new ObjectOutputStream(socketCliente.getOutputStream());
+            flujoEntrada = new ObjectInputStream(socketCliente.getInputStream());
+            flujoSalida = new ObjectOutputStream(socketCliente.getOutputStream());
         } catch (Exception e) {
             System.err.println("Problemas al iniciar los flujos de datos");
             cerrarSocket();
@@ -54,6 +54,7 @@ public class ConexionCliente implements Runnable{
 
         while (socketCliente.isConnected()) {
             String orden = leerTexto();
+            if (orden != null) {
                 String[] partes = orden.split(";");
                 switch (Integer.parseInt(partes[0])) {
                     case 0:
@@ -94,6 +95,7 @@ public class ConexionCliente implements Runnable{
                     case 5:
                         //Enviar partidas por terminar donde sea su turno
                         //orden;
+                        enviarTexto();
                         enviarObjeto(datosUsuario.getPartidasMiTurno());
                         break;
 
@@ -107,6 +109,8 @@ public class ConexionCliente implements Runnable{
                         throw new AssertionError();
                 }
             }
+            }
+
 
 
 
@@ -159,7 +163,7 @@ public class ConexionCliente implements Runnable{
 
     public String leerTexto() {
         try {
-            return objetoEntrada.readUTF();
+            return flujoEntrada.readUTF();
         } catch (IOException e) {
             System.err.println("Error al leer texto del cliente");
         }
@@ -168,8 +172,8 @@ public class ConexionCliente implements Runnable{
 
     public void enviarTexto(String texto) {
         try {
-            objetoSalida.writeUTF(texto);
-            objetoSalida.flush();
+            flujoSalida.writeUTF(texto);
+            flujoSalida.flush();
         } catch (Exception e) {
             System.err.println("Error al enviar texto al cliente");
         }
@@ -178,8 +182,8 @@ public class ConexionCliente implements Runnable{
 
     public void enviarEntero(int numero) {
         try {
-            objetoSalida.writeInt(numero);
-            objetoSalida.flush();
+            flujoSalida.writeInt(numero);
+            flujoSalida.flush();
         } catch (IOException e) {
             System.err.println("Error al enviar entero al cliente");
         }
@@ -187,8 +191,8 @@ public class ConexionCliente implements Runnable{
 
     public void enviarBoolean(boolean valor) {
         try {
-            objetoSalida.writeBoolean(valor);
-            objetoSalida.flush();
+            flujoSalida.writeBoolean(valor);
+            flujoSalida.flush();
         } catch (IOException e) {
             System.err.println("Error al enviar boolean al cliente");
         }
@@ -196,8 +200,8 @@ public class ConexionCliente implements Runnable{
 
     public void enviarObjeto(Object object) {
         try {
-            objetoSalida.writeObject(object);
-            objetoSalida.flush();
+            flujoSalida.writeObject(object);
+            flujoSalida.flush();
         } catch (Exception e) {
             System.err.println("Error al enviar objeto al cliente");
         }
@@ -206,9 +210,8 @@ public class ConexionCliente implements Runnable{
 
     public void cerrarSocket() {
         try {
-            objetoEntrada.close();
-            objetoSalida.close();
-            objetoSalida.close();
+            flujoEntrada.close();
+            flujoSalida.close();
             socketCliente.close();
 
         } catch (IOException e) {

@@ -1,7 +1,7 @@
 package damas.datos;
 
-import damas.modelo.Partida;
-import damas.modelo.Tablero;
+import modelo.*;
+
 
 import java.util.ArrayList;
 

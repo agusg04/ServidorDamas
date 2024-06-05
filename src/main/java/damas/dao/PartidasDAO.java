@@ -1,6 +1,6 @@
 package damas.dao;
 
-import damas.modelo.MovimientosPartida;
+import modelo.*;
 
 import java.util.ArrayList;
 

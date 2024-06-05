@@ -2,7 +2,7 @@ package damas.servidor;
 
 import damas.dao.PartidasDAOImpl;
 import damas.dao.UsuarioDAOImpl;
-import damas.modelo.*;
+import modelo.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;

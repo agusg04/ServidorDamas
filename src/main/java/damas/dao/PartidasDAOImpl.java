@@ -1,8 +1,7 @@
 package damas.dao;
 
-import damas.modelo.MovimientosPartida;
+import modelo.*;
 import damas.util.ConexionBD;
-import damas.modelo.Movimiento;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -11,10 +10,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 
 public class PartidasDAOImpl implements PartidasDAO {
-
-	public PartidasDAOImpl() {
-
-	}
 
 	@Override
 	public ArrayList<MovimientosPartida> devolverPartidasMiTurnoBD(int idUsuario) {
@@ -39,9 +34,9 @@ public class PartidasDAOImpl implements PartidasDAO {
 	public int crearPartidaBD(int idUsuarioDesafiado, int idUsuarioDesafiador, int tamanio) {
 		// esto devolverá el id de la partida
 		int idPartidaCreada = -1;
-		String insertarPartidasSQL = "INSERT INTO partidas (tamanio, finalizada) VALUES (?, ?)";
+		String insertarPartidasSQL     = "INSERT INTO partidas (tamanio, finalizada) VALUES (?, ?)";
 		String insertUsuarioPartidaSQL = "INSERT INTO usuarios_partidas (id_usuario, id_partida, color) VALUES (?, ?, ?)";
-		String obtenerUltimoIdPartida = "SELECT id_partida FROM partidas order by id_partida DESC limit 1;";
+		String obtenerUltimoIdPartida  = "SELECT id_partida FROM partidas order by id_partida DESC limit 1;";
 
 		try (Connection connection = ConexionBD.obtenerConexion()){
 			// Insertar la nueva partida
@@ -106,46 +101,41 @@ public class PartidasDAOImpl implements PartidasDAO {
 	@Override
 	public void insertarMovimientoBD(int idPartida, int idUsuario, int posXini, int posYini, int posXfin, int posYfin) {
 
-		try (Connection connection = ConexionBD.obtenerConexion()) {
+		String sql = "INSERT INTO movimientos (id_usuario, id_partida, pos_ini_x, pos_ini_y, pos_fin_x, pos_fin_y) VALUES (?, ?, ?, ?, ?, ?)";
 
-			String sql = "INSERT INTO movimientos (id_usuario, id_partida, pos_ini_x, pos_ini_y, pos_fin_x, pos_fin_y) VALUES (?, ?, ?, ?, ?, ?)";
+		try (Connection connection = ConexionBD.obtenerConexion();
+			 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+			preparedStatement.setInt(1, idUsuario);
+			preparedStatement.setInt(2, idPartida);
+			preparedStatement.setInt(3, posXini);
+			preparedStatement.setInt(4, posYini);
+			preparedStatement.setInt(5, posXfin);
+			preparedStatement.setInt(6, posYfin);
 
-			try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-				preparedStatement.setInt(1, idUsuario);
-				preparedStatement.setInt(2, idPartida);
-				preparedStatement.setInt(3, posXini);
-				preparedStatement.setInt(4, posYini);
-				preparedStatement.setInt(5, posXfin);
-				preparedStatement.setInt(6, posYfin);
+			int rowsAffected = preparedStatement.executeUpdate();
 
-				int rowsAffected = preparedStatement.executeUpdate();
-
-				if (rowsAffected == 1) {
-					// La inserción fue exitosa
-					System.out.println("Operación de inserción exitosa.");
-					connection.commit();
-				} else {
-					// La inserción no tuvo efecto (ninguna fila afectada)
-					System.out.println("Error en la operación de inserción.");
-				}
-
-			} catch (SQLException e) {
-				System.err.println("Error de insercion: " + e);
+			if (rowsAffected == 1) {
+				// La inserción fue exitosa
+				System.out.println("Operación de inserción exitosa.");
+				connection.commit();
+			} else {
+				// La inserción no tuvo efecto (ninguna fila afectada)
+				System.out.println("Error en la operación de inserción.");
 			}
 
 		} catch (SQLException e) {
-			System.err.println("Error de conexion: " + e);
+			System.err.println("Error: " + e);
 		}
 
 	}
 
 	@Override
 	public boolean comprobarTurno(int idPartida, int idUsuario) {
-		try (Connection connection = ConexionBD.obtenerConexion()) {
 
-			String sql = "SELECT id_usuario FROM movimientos WHERE id_partida = ? order by id_movimiento DESC LIMIT 1";
+		String sql = "SELECT id_usuario FROM movimientos WHERE id_partida = ? order by id_movimiento DESC LIMIT 1";
 
-			try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+		try (Connection connection = ConexionBD.obtenerConexion();
+				PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
 				preparedStatement.setInt(1, idPartida);
 
@@ -161,13 +151,8 @@ public class PartidasDAOImpl implements PartidasDAO {
 					System.err.println("Error: " + e);
 				}
 
-			} catch (SQLException e) {
-				System.err.println("Error: " + e);
-
-			}
-
 		} catch (SQLException e) {
-			System.err.println("Error de conexion: " + e);
+			System.err.println("Error: " + e);
 
 		}
 
@@ -180,7 +165,7 @@ public class PartidasDAOImpl implements PartidasDAO {
 		String sql = "SELECT id_partida FROM usuarios_partidas WHERE id_usuario = ? AND id_partida NOT IN (SELECT id_partida FROM partidas WHERE finalizada = 1)";
 
 		try (Connection connection = ConexionBD.obtenerConexion();
-			 PreparedStatement statement = connection.prepareStatement(sql)){
+			 PreparedStatement statement = connection.prepareStatement(sql)) {
 
 			statement.setInt(1, idUsuario);
 			ResultSet resultado = statement.executeQuery();
@@ -228,6 +213,7 @@ public class PartidasDAOImpl implements PartidasDAO {
 		String sql = "SELECT id_usuario FROM movimientos WHERE id_partida = ? ORDER BY id_movimiento DESC LIMIT 1";
 		try (Connection connection = ConexionBD.obtenerConexion();
 			 PreparedStatement statement = connection.prepareStatement(sql)) {
+
 			statement.setInt(1, idPartida);
 			ResultSet resultSet = statement.executeQuery();
 			if (resultSet.next()) {
@@ -276,6 +262,7 @@ public class PartidasDAOImpl implements PartidasDAO {
 		String sql = "SELECT tamanio FROM partidas WHERE id_partida = ?";
 		try (Connection connection = ConexionBD.obtenerConexion();
 			 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
 			preparedStatement.setInt(1, idPartida);
 			ResultSet rsTamano = preparedStatement.executeQuery();
 			if (rsTamano.next()) {
@@ -286,6 +273,4 @@ public class PartidasDAOImpl implements PartidasDAO {
 		}
 		return -1; // Valor por defecto si no se encuentra el tamaño de la partida
 	}
-
-
 }
