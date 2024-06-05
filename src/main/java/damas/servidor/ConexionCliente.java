@@ -87,7 +87,7 @@ public class ConexionCliente implements Runnable{
                     case 4:
                         //Capturar ficha
                         //orden;idPartida;coordenadaXorigen;coordenadaYorigen;coordenadaXdestino;coordenadaYdestino;
-                        enviarBoolean(gestorJuego.capturarFicha());
+                        //////////////////////enviarBoolean(gestorJuego.capturarFicha());
                         datosUsuario.setPartidasNoMiTurno(gestorJuego.devolverPartidasNoMiTurno(getIdUsuario()));
                         break;
 
@@ -126,15 +126,18 @@ public class ConexionCliente implements Runnable{
 
             switch (partes[0]) {
                 case "L":
-                    exitoso = gestorJuego.comprobarUsuario(partes[1], partes[2]) && gestorJuego.aniadirUsuarioConectado(gestorJuego.devolverIdUsuario(partes[1]), this);
+                    exitoso = gestorJuego.comprobarUsuario(partes[1], partes[2]) &&
+                            gestorJuego.aniadirUsuarioConectado(gestorJuego.devolverIdUsuario(partes[1]), this);
                     enviarBoolean(exitoso);
-
+                    if (exitoso) {
+                        cargarDatos(partes[1], partes[2]);
+                    }
                     break;
 
                 case "R":
-                    exitoso = gestorJuego.registrarUsuario(partes[1], partes[2]) && gestorJuego.aniadirUsuarioConectado(gestorJuego.devolverIdUsuario(partes[1]), this);
-                    enviarBoolean(exitoso);
-
+                    boolean registro = gestorJuego.registrarUsuario(partes[1], partes[2]);
+                    enviarBoolean(registro);
+                    // No cargar datos aquí. El usuario necesita iniciar sesión después de registrarse.
                     break;
 
                 default:
@@ -142,11 +145,6 @@ public class ConexionCliente implements Runnable{
 
             }
         }
-
-        if (partes != null) {
-            cargarDatos(partes[0], partes[1]);
-        }
-
     }
 
     private void cargarDatos(String nombre, String contrasenia) {

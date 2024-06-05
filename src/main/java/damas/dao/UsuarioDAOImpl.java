@@ -81,7 +81,6 @@ public class UsuarioDAOImpl implements UsuarioDAO {
                     if (rowsAffected == 1) {
                         // La inserción fue exitosa
                         System.out.println("Operación de inserción exitosa.");
-                        connection.commit();
                         return true;
                     } else {
                         // La inserción no tuvo efecto (ninguna fila afectada)

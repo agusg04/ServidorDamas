@@ -208,6 +208,7 @@ public class GestorJuego {
     }
 
 
+    /*
     public boolean capturarFicha(int idPartida, int idUsuario, Tablero tablero, int posXini, int posYini, int posXfin, int posYfin) {
         if (partidasDAO.comprobarTurno(idPartida, idUsuario) && comprobarCapturaLegal(tablero, posXini, posYini, posXfin, posYfin)) {
             partidasDAO.insertarMovimientoBD(idPartida, idUsuario, posXini, posYini, posXfin, posYfin);
@@ -215,6 +216,8 @@ public class GestorJuego {
         }
         return false;
     }
+
+     */
 
 
 }
