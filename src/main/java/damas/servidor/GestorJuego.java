@@ -6,12 +6,31 @@ import modelo.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 
 public class GestorJuego {
 
     HashMap<Integer, ConexionCliente> usuariosConectados = new HashMap<>();
     UsuarioDAOImpl usuarioDAO = new UsuarioDAOImpl();
     PartidasDAOImpl partidasDAO = new PartidasDAOImpl();
+
+    public Map<Integer, String> devoLverJugadoresDisponibles(int idUsuarioPasado) {
+        Map<Integer, String> jugadoresDisponibles = new HashMap<>();
+
+        for (Map.Entry<Integer, ConexionCliente> entry : usuariosConectados.entrySet()) {
+            Integer idUsuario = entry.getKey();
+            ConexionCliente conexionCliente = entry.getValue();
+
+            // Excluir al usuario solicitante
+            if (!idUsuario.equals(idUsuarioPasado)) {
+                String nombreUsuario = conexionCliente.getNombreUsuario();
+                if (nombreUsuario != null) {
+                    jugadoresDisponibles.put(idUsuario, nombreUsuario);
+                }
+            }
+        }
+        return jugadoresDisponibles;
+    }
 
     public boolean comprobarUsuario(String nombreUsuario, String contrasenia) {
         return usuarioDAO.comprobarUsuarioBD(nombreUsuario, contrasenia);
@@ -136,13 +155,15 @@ public class GestorJuego {
     }
 
     public void moverFicha(int idPartida, int idUsuario, Tablero tablero, int posXini, int posYini, int posXfin, int posYfin) {
-        if (partidasDAO.comprobarTurno(idPartida, idUsuario) && comprobarMovimientoLegal(tablero, posXini, posYini, posXfin, posYfin, partidasDAO.comprobarColor(idPartida, idUsuario), false)) {
+        if (partidasDAO.comprobarTurno(idPartida, idUsuario) &&
+                comprobarMovimientoLegal(tablero, posXini, posYini, posXfin, posYfin, partidasDAO.comprobarColor(idPartida, idUsuario), false)) {
             partidasDAO.insertarMovimientoBD(idPartida, idUsuario, posXini, posYini, posXfin, posYfin);
         }
     }
 
     public boolean capturarFicha(int idPartida, int idUsuario, Tablero tablero, int posXini, int posYini, int posXfin, int posYfin) {
-        if (partidasDAO.comprobarTurno(idPartida, idUsuario) && comprobarMovimientoLegal(tablero, posXini, posYini, posXfin, posYfin, partidasDAO.comprobarColor(idPartida, idUsuario), true)) {
+        if (partidasDAO.comprobarTurno(idPartida, idUsuario) &&
+                comprobarMovimientoLegal(tablero, posXini, posYini, posXfin, posYfin, partidasDAO.comprobarColor(idPartida, idUsuario), true)) {
             partidasDAO.insertarMovimientoBD(idPartida, idUsuario, posXini, posYini, posXfin, posYfin);
             return comprobarVictoria(tablero, tablero.getPieza(posXfin, posYfin).getColor());
         }
@@ -199,7 +220,7 @@ public class GestorJuego {
         int x = posXini + sentidoX;
         int y = posYini + sentidoY;
 
-        // Comprobar que no hay fichas en las casillas intermedias entre la casilla de origen y la casilla de la ficha que va a ser comida
+        // Comprobar que no hay fichas en las casillas intermedias entre la casilla de origen y la casilla de la ficha que va a ser comida o la casilla destino
         while (x != posXfin - sentidoX || y != posYfin - sentidoY) {
             // Si hay una ficha en alguna casilla intermedia, el movimiento no es legal
             if (tablero.getPieza(x, y) != null) return true;
@@ -292,4 +313,17 @@ public class GestorJuego {
 
         return true;
     }
+
+    private boolean comprobarVictoria(Tablero tablero, ColorPieza color) {
+        for (int i = 0; i < tablero.getTamanio(); i++) {
+            for (int j = 0; j < tablero.getTamanio(); j++) {
+                Pieza pieza = tablero.getPieza(i, j);
+                if (pieza != null && pieza.getColor() != color){
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
 }

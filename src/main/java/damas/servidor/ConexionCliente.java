@@ -26,6 +26,10 @@ public class ConexionCliente implements Runnable{
         return datosUsuario.getIdUsuario();
     }
 
+    public String getNombreUsuario() {
+        return datosUsuario.getNombre();
+    }
+
     @Override
     public void run() {
         try {
@@ -88,21 +92,28 @@ public class ConexionCliente implements Runnable{
                     case 4:
                         //Capturar ficha
                         //orden;idPartida;coordenadaXorigen;coordenadaYorigen;coordenadaXdestino;coordenadaYdestino;
-                        enviarBoolean(gestorJuego.capturarFicha());
+                        enviarBoolean(gestorJuego.capturarFicha(Integer.parseInt(partes[1]), getIdUsuario(), datosUsuario.buscarTableroMiTurno(Integer.parseInt(partes[1])), Integer.parseInt(partes[2]), Integer.parseInt(partes[3]), Integer.parseInt(partes[4]), Integer.parseInt(partes[5])));
                         datosUsuario.setPartidasNoMiTurno(gestorJuego.devolverPartidasNoMiTurno(getIdUsuario()));
                         break;
 
                     case 5:
                         //Enviar partidas por terminar donde sea su turno
                         //orden;
-                        ///////////////////enviarTexto();
+                        enviarEntero(2);
                         enviarObjeto(datosUsuario.getPartidasMiTurno());
                         break;
 
                     case 6:
                         //Enviar partidas terminadas
                         //orden;
+                        enviarEntero(3);
                         enviarObjeto(datosUsuario.getPartidasTermiandas());
+                        break;
+
+                    case 7:
+                        //Enviar los jugadores disponibles para jugar pero sin enviar al propio jugador
+                        //orden;idUsuario
+                        enviarObjeto(gestorJuego.devoLverJugadoresDisponibles(Integer.parseInt(partes[1])));
                         break;
 
                     default:
@@ -152,6 +163,7 @@ public class ConexionCliente implements Runnable{
         ArrayList<Partida> partidasTerminadas = gestorJuego.devolverPartidasTerminadas(id);
 
         datosUsuario = new DatosUsuario(id, nombre, contrasenia, partidasMiTurno, partidasNoMiTurno, partidasTerminadas);
+        enviarObjeto(datosUsuario);
     }
 
 
