@@ -57,13 +57,13 @@ public class GestorJuego {
     }
 
 
-    public ArrayList<Tablero> devolverPartidasMiTurno(int id) {
+    public ArrayList<Tablero> devolverPartidasMiTurno(int idUsuario) {
         //Aquí recoger los movimientos que nos da partidasDAO y reproducirlos en un Tablero,
         //de esta forma conseguiremos el último tablero de la partida
         //------------------------------------------------------------
         //Reproducir los movimientos solo hay que mirar en los movimientos en que una ficha coma a otra
         //quitar esa ficha no comprobar si son legales los movimientos o si se salen del tablero
-        return obtenerPartidas(id, true);
+        return obtenerPartidas(idUsuario, true);
     }
 
 
@@ -326,4 +326,12 @@ public class GestorJuego {
         return true;
     }
 
+    public void notificarJugadores(int idUsuario) {
+        for (Map.Entry<Integer, ConexionCliente> entry : usuariosConectados.entrySet()) {
+            if (entry.getKey() != idUsuario) {
+                ConexionCliente cliente = entry.getValue();
+                cliente.enviarOrdenActualizar();
+            }
+        }
+    }
 }

@@ -1,6 +1,6 @@
 package damas.servidor;
  
-import damas.datos.DatosUsuario;
+import datos.DatosUsuario;
 import modelo.*;
 
 
@@ -16,6 +16,7 @@ public class ConexionCliente implements Runnable{
     private ObjectOutputStream flujoSalida;
 
     private DatosUsuario datosUsuario;
+    private boolean cerrarConexion;
 
     public ConexionCliente(Socket socketCliente, GestorJuego gestorJuego) {
         this.socketCliente = socketCliente;
@@ -56,8 +57,9 @@ public class ConexionCliente implements Runnable{
 
         realizarLoginORegistro();
 
-        while (socketCliente.isConnected()) {
+        while (!cerrarConexion) {
             String orden = leerTexto();
+            System.out.println(orden);
             if (orden != null) {
                 String[] partes = orden.split(";");
                 switch (Integer.parseInt(partes[0])) {
@@ -66,6 +68,7 @@ public class ConexionCliente implements Runnable{
                         //orden;
                         gestorJuego.eliminarUsuarioConectado(this);
                         cerrarSocket();
+                        cerrarConexion = true;
                         break;
 
                     case 1:
@@ -114,6 +117,10 @@ public class ConexionCliente implements Runnable{
                         //Enviar los jugadores disponibles para jugar pero sin enviar al propio jugador
                         //orden;idUsuario
                         enviarObjeto(gestorJuego.devoLverJugadoresDisponibles(Integer.parseInt(partes[1])));
+                        break;
+
+                    case 8:
+                        gestorJuego.notificarJugadores(Integer.parseInt(partes[1]));
                         break;
 
                     default:
@@ -208,10 +215,15 @@ public class ConexionCliente implements Runnable{
         try {
             flujoSalida.writeObject(object);
             flujoSalida.flush();
+            System.out.println(object);
         } catch (Exception e) {
             System.err.println("Error al enviar objeto al cliente");
         }
 
+    }
+
+    public void enviarOrdenActualizar() {
+        enviarEntero(4);
     }
 
     public void cerrarSocket() {
@@ -219,7 +231,7 @@ public class ConexionCliente implements Runnable{
             flujoEntrada.close();
             flujoSalida.close();
             socketCliente.close();
-
+            System.out.println("Conexiones con el cliente cerradas");
         } catch (IOException e) {
             System.err.println("Error al cerrar los flujos de datos");
         }
