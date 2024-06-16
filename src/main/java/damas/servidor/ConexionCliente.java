@@ -133,6 +133,9 @@ public class ConexionCliente implements Runnable{
                                 enviarEntero(11);
                                 enviarEntero(Integer.parseInt(partes[1]));
                             }
+                        } else {
+                            enviarEntero(12);
+                            enviarEntero(Integer.parseInt(partes[1]));
                         }
                         break;
 
