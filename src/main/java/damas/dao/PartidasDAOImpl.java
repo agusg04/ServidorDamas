@@ -12,25 +12,6 @@ import java.util.ArrayList;
 public class PartidasDAOImpl implements PartidasDAO {
 
 	@Override
-	public ArrayList<MovimientosPartida> devolverPartidasMiTurnoBD(int idUsuario) {
-		//devolver un array de movimientos el gestor se encarga de comprobarlos y reproducirlos
-		return obtenerMovimientosPartidas(idUsuario, true);
-	}
-
-	@Override
-	public ArrayList<MovimientosPartida> devolverPartidasNoMiTurnoBD(int idUsuario) {
-		//devolver un array de movimientos el gestor se encarga de comprobarlos y reproducirlos
-		return obtenerMovimientosPartidas(idUsuario, false);
-	}
-
-	@Override
-	public ArrayList<MovimientosPartida> devolverPartidasTerminadasBD(int idUsuario) {
-		//devolver un array de movimientos el gestor se encarga de comprobarlos y crear
-		//un tablero con cada movimiento
-		return obtenerMovimientosPartidas(idUsuario);
-	}
-
-	@Override
 	public int crearPartidaBD(int idUsuarioDesafiado, int idUsuarioDesafiador, int tamanio) {
 		// esto devolverá el id de la partida
 		int idPartidaCreada = -1;
@@ -79,26 +60,6 @@ public class PartidasDAOImpl implements PartidasDAO {
 	}
 
 	@Override
-	public void rendirseEnPartidaBD(int idPartida) {
-		String sql = "UPDATE partidas SET finalizada = 1 WHERE id_partida = ?";
-
-		try (Connection connection = ConexionBD.obtenerConexion();
-				PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-
-			preparedStatement.setInt(1, idPartida);
-			int rowsUpdated = preparedStatement.executeUpdate();
-
-			if (rowsUpdated == 1) {
-				System.out.println("La partida con ID " + idPartida + " ha sido finalizada.");
-			} else {
-				System.out.println("No se encontró la partida con ID " + idPartida + ".");
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-	}
-
-	@Override
 	public void insertarMovimientoBD(int idPartida, int idUsuario, int posXini, int posYini, int posXfin, int posYfin) {
 
 		String sql = "INSERT INTO movimientos (id_usuario, id_partida, pos_ini_x, pos_ini_y, pos_fin_x, pos_fin_y) VALUES (?, ?, ?, ?, ?, ?)";
@@ -129,49 +90,56 @@ public class PartidasDAOImpl implements PartidasDAO {
 
 	}
 
+
 	@Override
-	public boolean comprobarTurno(int idPartida, int idUsuario) {
-
-		String sql = "SELECT id_usuario FROM movimientos WHERE id_partida = ? order by id_movimiento DESC LIMIT 1";
-
-		try (Connection connection = ConexionBD.obtenerConexion();
-				PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-
-				preparedStatement.setInt(1, idPartida);
-
-				try (ResultSet resultSet = preparedStatement.executeQuery()) {
-					if (resultSet.next()) {
-						int ultimaJugada = resultSet.getInt("id_usuario");
-
-						// Lógica para determinar si es su turno
-                        return ultimaJugada != idUsuario;
-					}
-
-				} catch (SQLException e) {
-					System.err.println("Error: " + e);
-				}
-
-		} catch (SQLException e) {
-			System.err.println("Error: " + e);
-
-		}
-
-		return false;
+	public MovimientosPartida devolverPartidaBD(int idPartida) {
+		return obtenerMovimientosDeUnaPartida(idPartida);
 	}
 
-	private ArrayList<MovimientosPartida> obtenerMovimientosPartidas(int idUsuario) {
-		ArrayList<MovimientosPartida> movimientosTodasPartidas = new ArrayList<>();
-		//Sentencia para obtener los ides de las partidas que no están terminadas
-		String sql = "SELECT id_partida FROM usuarios_partidas WHERE id_usuario = ? AND id_partida NOT IN (SELECT id_partida FROM partidas WHERE finalizada = 1)";
+	@Override
+	public void rendirseEnPartidaBD(int idPartida) {
+		String sql = "UPDATE partidas SET finalizada = 1 WHERE id_partida = ?";
 
 		try (Connection connection = ConexionBD.obtenerConexion();
-			 PreparedStatement statement = connection.prepareStatement(sql)) {
+			 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
-			statement.setInt(1, idUsuario);
-			ResultSet resultado = statement.executeQuery();
+			preparedStatement.setInt(1, idPartida);
+			int rowsUpdated = preparedStatement.executeUpdate();
 
-			while (resultado.next()) {
-				int idPartida = resultado.getInt("id_partida");
+			if (rowsUpdated == 1) {
+				System.out.println("La partida con ID " + idPartida + " ha sido finalizada.");
+			} else {
+				System.out.println("No se encontró la partida con ID " + idPartida + ".");
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public ArrayList<MovimientosPartida> devolverPartidasActivasBD() {
+		return obtenerMovimientosPartidas(false);
+	}
+
+	@Override
+	public ArrayList<MovimientosPartida> devolverPartidasTerminadasBD() {
+		return obtenerMovimientosPartidas(true);
+	}
+
+	private ArrayList<MovimientosPartida> obtenerMovimientosPartidas(boolean finalizadas) {
+		ArrayList<MovimientosPartida> movimientosTodasPartidas = new ArrayList<>();
+		//Sentencia para obtener los ides de las partidas que no estan terminadas
+		String sql = "SELECT id_partida FROM partidas WHERE finalizada = ?";
+
+		try (Connection connection = ConexionBD.obtenerConexion();
+			 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+			preparedStatement.setInt(1, finalizadas ? 1 : 0);
+
+			ResultSet resultSet = preparedStatement.executeQuery();
+
+			while (resultSet.next()) {
+				int idPartida = resultSet.getInt("id_partida");
 				//Recopilar los movimientos de cada partida
 				MovimientosPartida movimientosPartida = obtenerMovimientosDeUnaPartida(idPartida);
 				movimientosTodasPartidas.add(movimientosPartida);
@@ -183,57 +151,13 @@ public class PartidasDAOImpl implements PartidasDAO {
 		return movimientosTodasPartidas;
 	}
 
-	private ArrayList<MovimientosPartida> obtenerMovimientosPartidas(int idUsuario, boolean suTurno) {
-		ArrayList<MovimientosPartida> movimientosTodasPartidas = new ArrayList<>();
-		//Sentencia para obtener los ides de las partidas que están terminadas
-		String sql = "SELECT id_partida FROM usuarios_partidas WHERE id_usuario = ? AND id_partida NOT IN (SELECT id_partida FROM partidas WHERE finalizada = 1)";
 
-		try (Connection connection = ConexionBD.obtenerConexion();
-			 PreparedStatement statement = connection.prepareStatement(sql)){
-			statement.setInt(1, idUsuario);
-			ResultSet resultado = statement.executeQuery();
-
-			while (resultado.next()) {
-				int idPartida = resultado.getInt("id_partida");
-				//Comprobar si es el turno del jugador pasado
-				if (esSuTurno(idPartida, idUsuario) == suTurno) {
-					//Recopilar los movimientos de cada partida
-					MovimientosPartida movimientosPartida = obtenerMovimientosDeUnaPartida(idPartida);
-					movimientosTodasPartidas.add(movimientosPartida);
-				}
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		
-		return movimientosTodasPartidas;
-	}
-
-	private boolean esSuTurno(int idPartida, int idUsuario) {
-		String sql = "SELECT id_usuario FROM movimientos WHERE id_partida = ? ORDER BY id_movimiento DESC LIMIT 1";
-		try (Connection connection = ConexionBD.obtenerConexion();
-			 PreparedStatement statement = connection.prepareStatement(sql)) {
-
-			statement.setInt(1, idPartida);
-			ResultSet resultSet = statement.executeQuery();
-			if (resultSet.next()) {
-				int idUsuarioUltimoMovimiento = resultSet.getInt("id_usuario");
-				return idUsuarioUltimoMovimiento != idUsuario;
-			}
-
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return false;
-
-	}
-
-	private MovimientosPartida obtenerMovimientosDeUnaPartida(int idPartida) {
-		MovimientosPartida movimientosPartida = new MovimientosPartida();
-		movimientosPartida.setId(idPartida);
+	public MovimientosPartida obtenerMovimientosDeUnaPartida(int idPartida) {
 
 		int tamanioPartida = obtenerTamanioPartida(idPartida);
-		movimientosPartida.setTamanio(tamanioPartida);
+		int idJugadorBlancas = obtenerIdJugadorBoN(idPartida, "B");
+		int idJugadorNegras = obtenerIdJugadorBoN(idPartida, "N");
+		int turnoActual = obtenerUltimoTurno(idPartida) == idJugadorBlancas ? idJugadorNegras : idJugadorBlancas;
 
 		ArrayList<Movimiento> movimientos = new ArrayList<>();
 
@@ -254,8 +178,7 @@ public class PartidasDAOImpl implements PartidasDAO {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		movimientosPartida.setMovimientos(movimientos);
-		return movimientosPartida;
+		return new MovimientosPartida(idPartida, idJugadorBlancas, idJugadorNegras, turnoActual, tamanioPartida, movimientos);
 	}
 
 	private int obtenerTamanioPartida(int idPartida) {
@@ -274,21 +197,46 @@ public class PartidasDAOImpl implements PartidasDAO {
 		return -1; // Valor por defecto si no se encuentra el tamaño de la partida
 	}
 
-	@Override
-	public ColorPieza comprobarColor(int idPartida, int idUsuario) {
-		String sql = "SELECT color FROM usuarios_partidas WHERE id_partida = ? AND id_usuario = ?";
+	public int obtenerUltimoTurno(int idPartida) {
+
+		String sql = "SELECT id_usuario FROM movimientos WHERE id_partida = ? order by id_movimiento DESC LIMIT 1";
+
 		try (Connection connection = ConexionBD.obtenerConexion();
 			 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
 			preparedStatement.setInt(1, idPartida);
-			ResultSet rsColor = preparedStatement.executeQuery();
-			if (rsColor.next()) {
-				return ColorPieza.valueOf(rsColor.getString("color"));
 
+			ResultSet resultSet = preparedStatement.executeQuery();
+
+			if (resultSet.next()) {
+				return resultSet.getInt("id_usuario");
+			}
+
+		} catch (SQLException e) {
+			System.err.println("Error: " + e);
+
+		}
+		return -1;
+	}
+
+	// Métodos para obtener los ID de los jugadores
+	public int obtenerIdJugadorBoN(int idPartida, String color) {
+		String sql = "SELECT id_usuario FROM usuarios_partidas WHERE id_partida = ? AND color = ?";
+		try (Connection connection = ConexionBD.obtenerConexion();
+			 PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+			preparedStatement.setInt(1, idPartida);
+			preparedStatement.setString(2, color);
+			ResultSet resultSet = preparedStatement.executeQuery();
+			if (resultSet.next()) {
+				return resultSet.getInt("id_usuario");
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		return null; // Valor por defecto si no se encuentra el color del jugador
+		return -1;
 	}
+
+
+
+
 }

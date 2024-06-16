@@ -10,26 +10,20 @@ import java.util.Map;
 
 public class GestorJuego {
 
-    HashMap<Integer, ConexionCliente> usuariosConectados = new HashMap<>();
-    UsuarioDAOImpl usuarioDAO = new UsuarioDAOImpl();
-    PartidasDAOImpl partidasDAO = new PartidasDAOImpl();
+    Map<Integer, ConexionCliente> usuariosConectados;
+    Map<Integer, Partida> partidasActivas;
+    Map<Integer, PartidaTerminada> partidasTerminadas;
+    UsuarioDAOImpl usuarioDAO;
+    PartidasDAOImpl partidasDAO;
 
-    public Map<Integer, String> devoLverJugadoresDisponibles(int idUsuarioPasado) {
-        Map<Integer, String> jugadoresDisponibles = new HashMap<>();
-
-        for (Map.Entry<Integer, ConexionCliente> entry : usuariosConectados.entrySet()) {
-            Integer idUsuario = entry.getKey();
-            ConexionCliente conexionCliente = entry.getValue();
-
-            // Excluir al usuario solicitante
-            if (!idUsuario.equals(idUsuarioPasado)) {
-                String nombreUsuario = conexionCliente.getNombreUsuario();
-                if (nombreUsuario != null) {
-                    jugadoresDisponibles.put(idUsuario, nombreUsuario);
-                }
-            }
-        }
-        return jugadoresDisponibles;
+    public GestorJuego() {
+        this.usuariosConectados = new HashMap<>();
+        this.partidasActivas = new HashMap<>();
+        this.partidasTerminadas = new HashMap<>();
+        this.usuarioDAO = new UsuarioDAOImpl();
+        this.partidasDAO = new PartidasDAOImpl();
+        cargarPartidasActivas();
+        cargarPartidasTerminadas();
     }
 
     public boolean comprobarUsuario(String nombreUsuario, String contrasenia) {
@@ -38,10 +32,6 @@ public class GestorJuego {
 
     public boolean registrarUsuario(String nombreUsuario, String contrasenia) {
         return usuarioDAO.registrarUsuarioBD(nombreUsuario, contrasenia);
-    }
-
-    public int devolverIdUsuario(String nombre) {
-        return usuarioDAO.devolverIdUsuario(nombre);
     }
 
     public boolean aniadirUsuarioConectado(int idUsuario, ConexionCliente cliente) {
@@ -56,118 +46,77 @@ public class GestorJuego {
         usuariosConectados.remove(cliente.getIdUsuario());
     }
 
-
-    public ArrayList<Tablero> devolverPartidasMiTurno(int idUsuario) {
-        //Aquí recoger los movimientos que nos da partidasDAO y reproducirlos en un Tablero,
-        //de esta forma conseguiremos el último tablero de la partida
-        //------------------------------------------------------------
-        //Reproducir los movimientos solo hay que mirar en los movimientos en que una ficha coma a otra
-        //quitar esa ficha no comprobar si son legales los movimientos o si se salen del tablero
-        return obtenerPartidas(idUsuario, true);
-    }
-
-
-    public ArrayList<Tablero> devolverPartidasNoMiTurno(int id) {
-        //Aquí recoger los movimientos que nos da partidasDAO y reproducirlos en un Tablero,
-        //de esta forma conseguiremos el último tablero de la partida
-        return obtenerPartidas(id, false);
-    }
-
-    private ArrayList<Tablero> obtenerPartidas(int id, boolean miTurno) {
-        ArrayList<Tablero> partidas = new ArrayList<>();
-        ArrayList<MovimientosPartida> movimientosPartidas = miTurno ? partidasDAO.devolverPartidasMiTurnoBD(id) : partidasDAO.devolverPartidasNoMiTurnoBD(id);
-
-        for (MovimientosPartida movimientosUnaPartida : movimientosPartidas) {
-            // Crear un nuevo tablero e inicializarlo
-            Tablero tablero = new Tablero(movimientosUnaPartida.getId(), movimientosUnaPartida.getTamanio());
-            tablero.inicializarTablero();
-
-            // Reproducir los movimientos en el tablero
-            for (Movimiento movimiento : movimientosUnaPartida.getMovimientos()) {
-
-                reproducirMovimiento(tablero, movimiento);
+    public void notificarJugadores(int idUsuario, boolean conectado) {
+        // Construir el mapa de todos los jugadores conectados
+        Map<Integer, String> jugadoresConectados = new HashMap<>();
+        for (Map.Entry<Integer, ConexionCliente> entry : usuariosConectados.entrySet()) {
+            Integer id = entry.getKey();
+            ConexionCliente cliente = entry.getValue();
+            jugadoresConectados.put(id, cliente.getNombreUsuario());
+        }
+        // Enviar el mapa a todos los clientes conectados
+        for (Map.Entry<Integer, ConexionCliente> entry : usuariosConectados.entrySet()) {
+            ConexionCliente cliente = entry.getValue();
+            cliente.enviarEntero(5);
+            cliente.enviarObjeto(jugadoresConectados);
+            if (cliente.getIdUsuario() != idUsuario) {
+                cliente.enviarEntero(8);
+                cliente.enviarTexto(usuariosConectados.get(idUsuario).getNombreUsuario().trim());
+                cliente.enviarBoolean(conectado);
             }
-            partidas.add(tablero);
-        }
-        return partidas;
-    }
-
-    private void reproducirMovimiento(Tablero tablero, Movimiento movimiento) {
-        int origenX = movimiento.getPosIniX();
-        int origenY = movimiento.getPosIniY();
-        int destinoX = movimiento.getPosFinX();
-        int destinoY = movimiento.getPosFinY();
-
-        // Mover la ficha en el tablero
-        tablero.moverFicha(origenX, origenY, destinoX, destinoY);
-
-        // Eliminar las fichas que haya podido comerse en ese movimiento
-        // Recorre las casillas intermedias y eliminar las fichas que pudiera haber
-        int sentidoX = destinoX > origenX ? 1 : -1;
-        int sentidoY = destinoY > origenY ? 1 : -1;
-
-        int x = origenX + sentidoX;
-        int y = origenY + sentidoY;
-
-        while (x != destinoX || y != destinoY) {
-            tablero.eliminarFicha(x, y);
-            x += sentidoX;
-            y += sentidoY;
         }
     }
 
+    public int devolverIdUsuario(String nombre) {
+        return usuarioDAO.devolverIdUsuario(nombre);
+    }
 
-    public ArrayList<Partida> devolverPartidasTerminadas(int idUsuario) {
-        //Aqui recoger los movimientos que nos da partidasDAO y crear un nuevo tablero por movimiento
-        //asi conseguir un array de Tableros que será la partida
-        ArrayList<Partida> partidasTerminadas = new ArrayList<>();
-        ArrayList<MovimientosPartida> movimientosPartidasTerminadas = partidasDAO.devolverPartidasTerminadasBD(idUsuario);
+    public Partida devolverPartida(int idPartida) {
+        MovimientosPartida movimientosPartida = partidasDAO.obtenerMovimientosDeUnaPartida(idPartida);
+        Tablero tablero = new Tablero(movimientosPartida.getTamanio());
+        tablero.inicializarTablero();
 
-        for (MovimientosPartida movimientosUnaPartida : movimientosPartidasTerminadas) {
-            Partida partida = new Partida(movimientosUnaPartida.getId(), movimientosUnaPartida.getTamanio());
-            Tablero tablero = new Tablero(partida.getId(), partida.getTamanio());
-            tablero.inicializarTablero();
+        // Reproducir los movimientos en el tablero
+        for (Movimiento movimiento : movimientosPartida.getMovimientos()) {
 
-            partida.getMovimientos().add(tablero); // Agrega el estado inicial del tablero
-
-            for (Movimiento movimiento : movimientosUnaPartida.getMovimientos()) {
-
-                reproducirMovimiento(tablero, movimiento);
-
-                partida.getMovimientos().add(new Tablero(tablero)); // Agrega el estado del tablero después de cada movimiento
-            }
-
-            partidasTerminadas.add(partida);
+            reproducirMovimiento(tablero, movimiento);
         }
 
-        return partidasTerminadas;
+        return new Partida(idPartida, movimientosPartida.getIdJugadorBlanco(), movimientosPartida.getIdJugadorNegro(), movimientosPartida.getTurnoActual(), tablero);
+    }
 
+    public void aniadirPartidaActiva(int idPartida) {
+        partidasActivas.put(idPartida, devolverPartida(idPartida));
+    }
+
+    public void eliminarPartida(int idPartida) {
+        partidasActivas.remove(idPartida);
     }
 
     public int empezarPartida(int idUsuarioDesafiado, int idUsuarioDesafiador, int tamanio) {
-        return partidasDAO.crearPartidaBD(idUsuarioDesafiado, idUsuarioDesafiador, tamanio);
+        return  partidasDAO.crearPartidaBD(idUsuarioDesafiado, idUsuarioDesafiador, tamanio);
     }
 
-    public void rendirseEnPartida(int idPartida, int idUsuario) {
-        if (partidasDAO.comprobarTurno(idPartida, idUsuario)) {
-            partidasDAO.rendirseEnPartidaBD(idPartida);
-        }
+    public void rendirseEnPartida(int idPartida) {
+        partidasDAO.rendirseEnPartidaBD(idPartida);
     }
 
-    public void moverFicha(int idPartida, int idUsuario, Tablero tablero, int posXini, int posYini, int posXfin, int posYfin) {
-        if (partidasDAO.comprobarTurno(idPartida, idUsuario) &&
-                comprobarMovimientoLegal(tablero, posXini, posYini, posXfin, posYfin, partidasDAO.comprobarColor(idPartida, idUsuario), false)) {
-            partidasDAO.insertarMovimientoBD(idPartida, idUsuario, posXini, posYini, posXfin, posYfin);
-        }
+    public void actualizarPartidaServidor(int idPartida) {
+        partidasActivas.replace(idPartida, obtenerPartida(partidasDAO.devolverPartidaBD(idPartida)));
     }
 
-    public boolean capturarFicha(int idPartida, int idUsuario, Tablero tablero, int posXini, int posYini, int posXfin, int posYfin) {
-        if (partidasDAO.comprobarTurno(idPartida, idUsuario) &&
-                comprobarMovimientoLegal(tablero, posXini, posYini, posXfin, posYfin, partidasDAO.comprobarColor(idPartida, idUsuario), true)) {
-            partidasDAO.insertarMovimientoBD(idPartida, idUsuario, posXini, posYini, posXfin, posYfin);
-            return comprobarVictoria(tablero, tablero.getPieza(posXfin, posYfin).getColor());
+    public boolean moverFicha(Partida partida, int idUsuario, int posXini, int posYini, int posXfin, int posYfin) {
+        if (comprobarTurno(partida, idUsuario) &&
+                comprobarMovimientoLegal(partida.getTablero(), posXini, posYini, posXfin, posYfin, partida.getColorJugador(idUsuario), false)) {
+
+            partidasDAO.insertarMovimientoBD(partida.getIdPartida(), idUsuario, posXini, posYini, posXfin, posYfin);
+            return true;
         }
         return false;
+    }
+
+    private boolean comprobarTurno(Partida partida, int idUsuario) {
+        return partidasActivas.get(partida.getIdPartida()).getTurnoActual() == idUsuario;
     }
 
     private boolean comprobarMovimientoLegal(Tablero tablero, int posXini, int posYini, int posXfin, int posYfin, ColorPieza colorJugador, boolean captura) {
@@ -193,7 +142,7 @@ public class GestorJuego {
     }
 
     private boolean esFichaColorCorrecto(Pieza pieza, ColorPieza colorJugador) {
-        return pieza.getColor() == colorJugador;
+        return pieza.getColor() != colorJugador;
     }
 
     private boolean estaDentroDelTablero(int posX, int posY, int tamanio) {
@@ -205,8 +154,8 @@ public class GestorJuego {
     }
 
     private boolean esMovimientoAdelante(Pieza pieza, int desplazamientoY) {
-        return (pieza.getColor().equals(ColorPieza.BLANCA) && desplazamientoY == 1) ||
-                (pieza.getColor().equals(ColorPieza.NEGRA) && desplazamientoY == -1);
+        return (pieza.getColor().equals(ColorPieza.BLANCA) && desplazamientoY == -1) ||
+                (pieza.getColor().equals(ColorPieza.NEGRA) && desplazamientoY == 1);
     }
     private boolean esCapturaAdelante(Pieza pieza, int desplazamientoY) {
         return (pieza.getColor().equals(ColorPieza.BLANCA) && desplazamientoY == 2) ||
@@ -245,9 +194,9 @@ public class GestorJuego {
     }
 
     private boolean esMovimientoLegalPiezaNormal(Tablero tablero, Pieza pieza, int posXini, int posYini, int posXfin, int posYfin, int tamanio) {
-        if (Math.abs(posXfin - posXini) != 1) return false;
+        if (Math.abs(posYfin - posYini) != 1) return false;
 
-        int desplazamientoY = posYfin - posYini;
+        int desplazamientoY = posXfin - posXini;
         if (!esMovimientoAdelante(pieza, desplazamientoY)) return false;
 
         if ((posYfin == tamanio - 1  && pieza.getColor().equals(ColorPieza.BLANCA) || posYfin == 0 && pieza.getColor().equals(ColorPieza.NEGRA))) {
@@ -326,12 +275,208 @@ public class GestorJuego {
         return true;
     }
 
-    public void notificarJugadores(int idUsuario) {
-        for (Map.Entry<Integer, ConexionCliente> entry : usuariosConectados.entrySet()) {
-            if (entry.getKey() != idUsuario) {
-                ConexionCliente cliente = entry.getValue();
-                cliente.enviarOrdenActualizar();
+    public void cambiarTurno(int idPartida) {
+        partidasActivas.get(idPartida).cambiarTurno();
+    }
+
+    /*
+    public void cargarPartidasEficiente(int idUsuario) {
+        List<Integer> partidasConAdversarioConectado = new ArrayList<>();
+        List<Integer> partidasSinAdversarioConectado = new ArrayList<>();
+
+        for (Map.Entry<Integer, Partida> entry : partidasActivas.entrySet()) {
+            Integer idPartida = entry.getKey();
+            Partida partida = entry.getValue();
+
+            if (partida.estaInvolucrado(idUsuario)) {
+                Integer idAversario = partida.getIdAdversario(idUsuario);
+
+                if (idAversario != null && usuariosConectados.containsKey(idAversario)) {
+                    partidasConAdversarioConectado.add(idPartida);
+                } else {
+                    partidasSinAdversarioConectado.add(idPartida);
+                }
             }
         }
+        usuariosConectados.get(idUsuario).enviarEntero(6);
+        usuariosConectados.get(idUsuario).enviarObjeto(partidasConAdversarioConectado);
+        usuariosConectados.get(idUsuario).enviarObjeto(partidasSinAdversarioConectado);
+    }
+
+     */
+
+    public void cargarPartidasUsuario(int idUsuario) {
+        // Actualizar las partidas activas y terminadas para el usuario
+        actualizarPartidasUsuario(idUsuario);
+        actualizarRepeticiones(idUsuario);
+
+        // Notificar a todos los clientes conectados para que actualicen sus datos
+        notificarActualizacionPartidas();
+    }
+
+    public void notificarActualizacionPartidas() {
+        for (ConexionCliente cliente : usuariosConectados.values()) {
+            actualizarPartidasUsuario(cliente.getIdUsuario());
+        }
+    }
+
+    public void actualizarPartidasUsuario(int idUsuario) {
+        Map<Integer, Partida> partidasConAdversarioConectado = new HashMap<>();
+        Map<Integer, Partida> partidasSinAdversarioConectado = new HashMap<>();
+
+        for (Map.Entry<Integer, Partida> entry : partidasActivas.entrySet()) {
+            Integer idPartida = entry.getKey();
+            Partida partida = entry.getValue();
+
+            if (partida.estaInvolucrado(idUsuario)) {
+                Integer idAversario = partida.getIdAdversario(idUsuario);
+
+                if (idAversario != null && usuariosConectados.containsKey(idAversario)) {
+                    partidasConAdversarioConectado.put(idPartida, partida);
+                } else {
+                    partidasSinAdversarioConectado.put(idPartida, partida);
+                }
+            }
+        }
+        usuariosConectados.get(idUsuario).enviarEntero(6);
+        usuariosConectados.get(idUsuario).enviarObjeto(partidasConAdversarioConectado);
+        usuariosConectados.get(idUsuario).enviarObjeto(partidasSinAdversarioConectado);
+    }
+
+    public void actualizarRepeticiones(int idUsuario) {
+        Map<Integer, PartidaTerminada> partidasTerminadasACargar = new HashMap<>();
+
+        for (Map.Entry<Integer, PartidaTerminada> entry : partidasTerminadas.entrySet()) {
+            Integer idPartida = entry.getKey();
+            PartidaTerminada partidaTerminada = entry.getValue();
+
+            if (partidaTerminada.estaInvolucrado(idUsuario)) {
+                partidasTerminadasACargar.put(idPartida, partidaTerminada);
+            }
+        }
+        usuariosConectados.get(idUsuario).enviarEntero(7);
+        usuariosConectados.get(idUsuario).enviarObjeto(partidasTerminadasACargar);
+    }
+
+    private void cargarPartidasActivas() {
+        ArrayList<MovimientosPartida> movimientosTodasPartidas = partidasDAO.devolverPartidasActivasBD();
+        this.partidasActivas = obtenerPartidas(movimientosTodasPartidas);
+    }
+
+    public void cargarPartidasTerminadas() {
+        ArrayList<MovimientosPartida> movimientosTodasPartidas = partidasDAO.devolverPartidasTerminadasBD();
+        this.partidasTerminadas = obtenerRepeticiones(movimientosTodasPartidas);
+    }
+
+    private Partida obtenerPartida(MovimientosPartida movimientosPartida) {
+        // Crear un nuevo tablero e inicializarlo
+        Tablero tablero = new Tablero(movimientosPartida.getTamanio());
+        tablero.inicializarTablero();
+
+        // Reproducir los movimientos en el tablero
+        for (Movimiento movimiento : movimientosPartida.getMovimientos()) {
+            reproducirMovimiento(tablero, movimiento);
+        }
+        return new Partida(
+                movimientosPartida.getIdPartida(),
+                movimientosPartida.getIdJugadorBlanco(),
+                movimientosPartida.getIdJugadorNegro(),
+                movimientosPartida.getTurnoActual(),
+                tablero
+        );
+    }
+
+    private HashMap<Integer, Partida> obtenerPartidas(ArrayList<MovimientosPartida> movimientosPartidas) {
+        HashMap<Integer, Partida> partidasDesdeMovimientos = new HashMap<>();
+
+        for (MovimientosPartida movimientosUnaPartida : movimientosPartidas) {
+
+            Partida partida = obtenerPartida(movimientosUnaPartida);
+            partidasDesdeMovimientos.put(partida.getIdPartida(), partida);
+        }
+        return partidasDesdeMovimientos;
+    }
+
+    private void reproducirMovimiento(Tablero tablero, Movimiento movimiento) {
+        int origenX = movimiento.getPosIniX();
+        int origenY = movimiento.getPosIniY();
+        int destinoX = movimiento.getPosFinX();
+        int destinoY = movimiento.getPosFinY();
+
+        // Mover la ficha en el tablero
+        tablero.moverFicha(origenX, origenY, destinoX, destinoY);
+
+        eliminarFichasIntermedias(tablero, origenX, origenY, destinoX, destinoY);
+    }
+
+    private void eliminarFichasIntermedias(Tablero tablero, int origenX, int origenY, int destinoX, int destinoY) {
+        // Eliminar las fichas que haya podido comerse en ese movimiento
+        // Recorre las casillas intermedias y eliminar las fichas que pudiera haber
+        int sentidoX = destinoX > origenX ? 1 : -1;
+        int sentidoY = destinoY > origenY ? 1 : -1;
+
+        int x = origenX + sentidoX;
+        int y = origenY + sentidoY;
+
+        while (x != destinoX || y != destinoY) {
+            tablero.eliminarFicha(x, y);
+            x += sentidoX;
+            y += sentidoY;
+        }
+    }
+
+    private HashMap<Integer, PartidaTerminada> obtenerRepeticiones(ArrayList<MovimientosPartida> movimientosPartidas) {
+        //Aqui recoger los movimientos que nos da partidasDAO y crear un nuevo tablero por movimiento
+        //asi conseguir un array de Tableros que será la partida
+        HashMap<Integer, PartidaTerminada> repeticiones = new HashMap<>();
+
+        for (MovimientosPartida movimientosUnaPartida : movimientosPartidas) {
+            ArrayList<Tablero> partidaTerminada = new ArrayList<>();
+
+            Tablero tableroInicial = new Tablero(movimientosUnaPartida.getTamanio());
+            tableroInicial.inicializarTablero();
+
+            partidaTerminada.add(new Tablero(tableroInicial));
+
+            for (Movimiento movimiento : movimientosUnaPartida.getMovimientos()) {
+                reproducirMovimiento(tableroInicial, movimiento);
+                partidaTerminada.add(new Tablero(tableroInicial)); // Agregar copia del tablero después de cada movimiento
+            }
+
+            PartidaTerminada finalizada = new PartidaTerminada(
+                    movimientosUnaPartida.getIdPartida(),
+                    movimientosUnaPartida.getIdJugadorBlanco(),
+                    movimientosUnaPartida.getIdJugadorNegro(),
+                    partidaTerminada
+            );
+            repeticiones.put(movimientosUnaPartida.getIdPartida(), finalizada);
+        }
+        return repeticiones;
+    }
+
+    public Map<Integer, Partida> devolverMisPartidasActivas(int idUsuario) {
+        HashMap<Integer, Partida> misPartidasActivas = new HashMap<>();
+
+        for (Map.Entry<Integer, Partida> entry : partidasActivas.entrySet()) {
+            Partida partida = entry.getValue();
+            if (partida.getIdJugadorBlancas() == idUsuario || partida.getIdJugadorNegras() == idUsuario) {
+                misPartidasActivas.put(entry.getKey(), partida);
+            }
+        }
+
+        return misPartidasActivas;
+    }
+
+    public Map<Integer, PartidaTerminada> devolverMisPartidasFinalizadas(int idUsuario) {
+        HashMap<Integer, PartidaTerminada> misPartidasFinalizadas = new HashMap<>();
+
+        for (Map.Entry<Integer, PartidaTerminada> entry : partidasTerminadas.entrySet()) {
+            PartidaTerminada partidaTerminada = entry.getValue();
+            if (partidaTerminada.getIdJugadorBlancas() == idUsuario || partidaTerminada.getIdJugadorNegras() == idUsuario) {
+                misPartidasFinalizadas.put(entry.getKey(), partidaTerminada);
+            }
+        }
+
+        return misPartidasFinalizadas;
     }
 }

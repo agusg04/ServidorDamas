@@ -1,12 +1,10 @@
 package damas.servidor;
  
 import datos.DatosUsuario;
-import modelo.*;
 
 
 import java.io.*;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.Random;
 
 public class ConexionCliente implements Runnable{
@@ -14,7 +12,6 @@ public class ConexionCliente implements Runnable{
     private final GestorJuego gestorJuego;
     private ObjectInputStream flujoEntrada;
     private ObjectOutputStream flujoSalida;
-
     private DatosUsuario datosUsuario;
     private boolean cerrarConexion;
 
@@ -28,45 +25,53 @@ public class ConexionCliente implements Runnable{
     }
 
     public String getNombreUsuario() {
-        return datosUsuario.getNombre();
+        return datosUsuario != null ? datosUsuario.getNombre() : null;
     }
 
     @Override
     public void run() {
         try {
-            flujoEntrada = new ObjectInputStream(socketCliente.getInputStream());
             flujoSalida = new ObjectOutputStream(socketCliente.getOutputStream());
+            flujoEntrada = new ObjectInputStream(socketCliente.getInputStream());
+            System.out.println("Flujos creados");
         } catch (Exception e) {
             System.err.println("Problemas al iniciar los flujos de datos");
             cerrarSocket();
             return;
         }
 
+
         /*
         try {
-            String mensaje;
-            //var aa=(int) objetoEntrada.readObject();
-            while ((mensaje = objetoEntrada.readUTF()) != null){
-                System.out.println(mensaje);
-
+            while (true) {
+                String mensaje = flujoEntrada.readUTF();
+                if (mensaje != null) {
+                    System.out.println(mensaje);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+
          */
 
+
         realizarLoginORegistro();
+
 
         while (!cerrarConexion) {
             String orden = leerTexto();
             System.out.println(orden);
             if (orden != null) {
                 String[] partes = orden.split(";");
-                switch (Integer.parseInt(partes[0])) {
+                int numeroOrden = Integer.parseInt(partes[0]);
+                switch (numeroOrden) {
                     case 0:
                         //Salir
                         //orden;
+                        gestorJuego.notificarJugadores(getIdUsuario(), false);
                         gestorJuego.eliminarUsuarioConectado(this);
+                        gestorJuego.notificarActualizacionPartidas();
                         cerrarSocket();
                         cerrarConexion = true;
                         break;
@@ -74,53 +79,68 @@ public class ConexionCliente implements Runnable{
                     case 1:
                         //Enviamos el id de la partida creada
                         //orden;idUsuarioDesafiado;
-                        enviarEntero(gestorJuego.empezarPartida(Integer.parseInt(partes[1]), getIdUsuario(), (new Random().nextInt(2) == 0 ? 8 : 10) ));
-                        datosUsuario.setPartidasNoMiTurno(gestorJuego.devolverPartidasNoMiTurno(getIdUsuario()));
+                        gestorJuego.aniadirPartidaActiva(
+                                gestorJuego.empezarPartida(
+                                        Integer.parseInt(partes[1]),
+                                        getIdUsuario(),
+                                        (new Random().nextInt(2) == 0 ? 8 : 10)
+                                )
+                        );
+                        gestorJuego.actualizarPartidasUsuario(getIdUsuario()); //Actualizar las partidas al jugador
+                        gestorJuego.actualizarPartidasUsuario(Integer.parseInt(partes[1])); //Actualizar las partidas al adversario
                         break;
 
                     case 2:
                         //Rendirse en una partida
-                        //orden;idPartida;
-                        gestorJuego.rendirseEnPartida(Integer.parseInt(partes[1]), getIdUsuario());
-                        datosUsuario.setPartidasTermiandas(gestorJuego.devolverPartidasTerminadas(getIdUsuario()));
+                        //orden;idPartida;idAdversario;
+                        gestorJuego.rendirseEnPartida(Integer.parseInt(partes[1]));
+                        gestorJuego.eliminarPartida(Integer.parseInt(partes[1]));
+                        gestorJuego.cargarPartidasTerminadas();
+
+                        gestorJuego.actualizarPartidasUsuario(getIdUsuario()); //Actualizar las partidas al jugador
+                        gestorJuego.actualizarRepeticiones(getIdUsuario());
+                        enviarEntero(9);
+                        enviarEntero(Integer.parseInt(partes[1]));
+
+                        if (gestorJuego.usuariosConectados.containsKey(Integer.parseInt(partes[2]))) {
+                            gestorJuego.actualizarPartidasUsuario(Integer.parseInt(partes[2])); //Actualizar las partidas al adversario si esta conectado
+                            gestorJuego.actualizarRepeticiones(Integer.parseInt(partes[2]));
+                            enviarEntero(10);
+                            enviarEntero(Integer.parseInt(partes[1]));
+                        }
                         break;
 
                     case 3:
-                        //Poner ficha
-                        //orden;idPartida;coordenadaXorigen;coordenadaYorigen;coordenadaXdestino;coordenadaYdestino;
-                        gestorJuego.moverFicha(Integer.parseInt(partes[1]), getIdUsuario(), datosUsuario.buscarTableroMiTurno(Integer.parseInt(partes[1])), Integer.parseInt(partes[2]), Integer.parseInt(partes[3]), Integer.parseInt(partes[4]), Integer.parseInt(partes[5]));
-                        datosUsuario.setPartidasNoMiTurno(gestorJuego.devolverPartidasNoMiTurno(getIdUsuario()));
+                        //Mover ficha
+                        //orden;idPartida;idAdversario;coordenadaXorigen;coordenadaYorigen;coordenadaXdestino;coordenadaYdestino;
+
+                        boolean exitoso = gestorJuego.moverFicha(
+                                            gestorJuego.partidasActivas.get(Integer.parseInt(partes[1])),
+                                            getIdUsuario(),
+                                            Integer.parseInt(partes[3]),
+                                            Integer.parseInt(partes[4]),
+                                            Integer.parseInt(partes[5]),
+                                            Integer.parseInt(partes[6])
+                                            );
+                        if (exitoso) {
+                            gestorJuego.actualizarPartidaServidor(Integer.parseInt(partes[1]));
+                            gestorJuego.actualizarPartidasUsuario(getIdUsuario());
+                            enviarEntero(11);
+                            enviarEntero(Integer.parseInt(partes[1]));
+
+                            if (gestorJuego.usuariosConectados.containsKey(Integer.parseInt(partes[2]))) {
+                                gestorJuego.actualizarPartidasUsuario(Integer.parseInt(partes[2])); //Actualizar las partidas al adversario si esta conectado
+                                enviarEntero(11);
+                                enviarEntero(Integer.parseInt(partes[1]));
+                            }
+                        }
                         break;
 
                     case 4:
                         //Capturar ficha
                         //orden;idPartida;coordenadaXorigen;coordenadaYorigen;coordenadaXdestino;coordenadaYdestino;
-                        enviarBoolean(gestorJuego.capturarFicha(Integer.parseInt(partes[1]), getIdUsuario(), datosUsuario.buscarTableroMiTurno(Integer.parseInt(partes[1])), Integer.parseInt(partes[2]), Integer.parseInt(partes[3]), Integer.parseInt(partes[4]), Integer.parseInt(partes[5])));
-                        datosUsuario.setPartidasNoMiTurno(gestorJuego.devolverPartidasNoMiTurno(getIdUsuario()));
-                        break;
-
-                    case 5:
-                        //Enviar partidas por terminar donde sea su turno
-                        //orden;
-                        enviarEntero(2);
-                        enviarObjeto(datosUsuario.getPartidasMiTurno());
-                        break;
-
-                    case 6:
-                        //Enviar partidas terminadas
-                        //orden;
-                        enviarEntero(3);
-                        enviarObjeto(datosUsuario.getPartidasTermiandas());
-                        break;
-
-                    case 7:
-                        //Enviar los jugadores disponibles para jugar pero sin enviar al propio jugador
-                        //orden;idUsuario
-                        enviarObjeto(gestorJuego.devoLverJugadoresDisponibles(Integer.parseInt(partes[1])));
-                        break;
-
-                    case 8:
-                        gestorJuego.notificarJugadores(Integer.parseInt(partes[1]));
+                        /////////////////enviarBoolean(gestorJuego.capturarFicha(Integer.parseInt(partes[1]), getIdUsuario(), datosUsuario.buscarTableroMiTurno(Integer.parseInt(partes[1])), Integer.parseInt(partes[2]), Integer.parseInt(partes[3]), Integer.parseInt(partes[4]), Integer.parseInt(partes[5])));
+                        //////////////datosUsuario.setPartidasNoMiTurno(gestorJuego.devolverPartidasNoMiTurno(getIdUsuario()));
                         break;
 
                     default:
@@ -128,48 +148,60 @@ public class ConexionCliente implements Runnable{
                 }
             }
         }
+
     }
 
     private void realizarLoginORegistro() {
         boolean exitoso = false;
         String[] partes;
 
-        while (!exitoso && socketCliente.isConnected()) {
+        while (!exitoso) {
             String nombreYContra = leerTexto();
-            System.out.println(nombreYContra);
+            if (nombreYContra != null){
+                System.out.println(nombreYContra);
 
-            partes = nombreYContra.split(";");
+                partes = nombreYContra.split(";");
 
-            switch (partes[0]) {
-                case "L":
-                    exitoso = gestorJuego.comprobarUsuario(partes[1], partes[2]) &&
-                            gestorJuego.aniadirUsuarioConectado(gestorJuego.devolverIdUsuario(partes[1]), this);
-                    enviarBoolean(exitoso);
-                    if (exitoso) {
-                        cargarDatos(partes[1], partes[2]);
-                    }
-                    break;
+                int numeroOrden = Integer.parseInt(partes[0]);
+                switch (numeroOrden) {
+                    case 0:
+                        cerrarSocket();
+                        exitoso = true;
+                        cerrarConexion = true;
+                        break;
+                    case 1:
+                        exitoso = gestorJuego.comprobarUsuario(partes[1], partes[2]) &&
+                                gestorJuego.aniadirUsuarioConectado(gestorJuego.devolverIdUsuario(partes[1]), this);
+                        if (exitoso) {
+                            enviarEntero(1);
+                            cargarDatos(partes[1], partes[2]);
+                            gestorJuego.notificarJugadores(getIdUsuario(), true);
+                            gestorJuego.cargarPartidasUsuario(getIdUsuario());
 
-                case "R":
-                    boolean registro = gestorJuego.registrarUsuario(partes[1], partes[2]);
-                    enviarBoolean(registro);
-                    // No cargar datos aquí. El usuario necesita iniciar sesión después de registrarse.
-                    break;
+                        } else {
+                            enviarEntero(2);
+                        }
+                        break;
 
-                default:
-                    throw new AssertionError();
+                    case 2:
+                        boolean registro = gestorJuego.registrarUsuario(partes[1], partes[2]);
+                        enviarEntero(registro ? 3 : 4);
+                        // No cargar datos aquí. El usuario necesita iniciar sesión después de registrarse.
+                        break;
 
+                    default:
+                        throw new AssertionError();
+
+                }
             }
+
         }
     }
 
     private void cargarDatos(String nombre, String contrasenia) {
         int id = gestorJuego.devolverIdUsuario(nombre);
-        ArrayList<Tablero> partidasMiTurno = gestorJuego.devolverPartidasMiTurno(id);
-        ArrayList<Tablero> partidasNoMiTurno = gestorJuego.devolverPartidasNoMiTurno(id);
-        ArrayList<Partida> partidasTerminadas = gestorJuego.devolverPartidasTerminadas(id);
 
-        datosUsuario = new DatosUsuario(id, nombre, contrasenia, partidasMiTurno, partidasNoMiTurno, partidasTerminadas);
+        datosUsuario = new DatosUsuario(id, nombre, contrasenia);
         enviarObjeto(datosUsuario);
     }
 
@@ -222,18 +254,20 @@ public class ConexionCliente implements Runnable{
 
     }
 
-    public void enviarOrdenActualizar() {
-        enviarEntero(4);
-    }
-
     public void cerrarSocket() {
         try {
-            flujoEntrada.close();
-            flujoSalida.close();
-            socketCliente.close();
-            System.out.println("Conexiones con el cliente cerradas");
+            if (flujoEntrada != null) flujoEntrada.close();
+            if (flujoSalida != null) flujoSalida.close();
+            if (socketCliente != null) socketCliente.close();
+            String nombreUsuario = getNombreUsuario();
+            System.out.println("Conexiones con el cliente " + (nombreUsuario != null ? nombreUsuario : "no identificado") + " cerradas");
         } catch (IOException e) {
             System.err.println("Error al cerrar los flujos de datos");
         }
     }
+
+
+
+
+
 }
