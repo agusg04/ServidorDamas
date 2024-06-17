@@ -40,22 +40,6 @@ public class ConexionCliente implements Runnable{
             return;
         }
 
-
-        /*
-        try {
-            while (true) {
-                String mensaje = flujoEntrada.readUTF();
-                if (mensaje != null) {
-                    System.out.println(mensaje);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-         */
-
-
         realizarLoginORegistro();
 
 
@@ -79,15 +63,20 @@ public class ConexionCliente implements Runnable{
                     case 1:
                         //Enviamos el id de la partida creada
                         //orden;idUsuarioDesafiado;
-                        gestorJuego.aniadirPartidaActiva(
-                                gestorJuego.empezarPartida(
-                                        Integer.parseInt(partes[1]),
-                                        getIdUsuario(),
-                                        (new Random().nextInt(2) == 0 ? 8 : 10)
-                                )
-                        );
+                        int idPartida = gestorJuego.aniadirPartidaActiva(
+                                            gestorJuego.empezarPartida(
+                                                    Integer.parseInt(partes[1]),
+                                                    getIdUsuario(),
+                                                    (new Random().nextInt(2) == 0 ? 8 : 10)
+                                            )
+                                        );
                         gestorJuego.actualizarPartidasUsuario(getIdUsuario()); //Actualizar las partidas al jugador
                         gestorJuego.actualizarPartidasUsuario(Integer.parseInt(partes[1])); //Actualizar las partidas al adversario
+                        enviarEntero(13);
+                        enviarEntero(idPartida);
+                        gestorJuego.usuariosConectados.get(Integer.parseInt(partes[1])).enviarEntero(13);
+                        gestorJuego.usuariosConectados.get(Integer.parseInt(partes[1])).enviarEntero(idPartida);
+
                         break;
 
                     case 2:
@@ -105,8 +94,8 @@ public class ConexionCliente implements Runnable{
                         if (gestorJuego.usuariosConectados.containsKey(Integer.parseInt(partes[2]))) {
                             gestorJuego.actualizarPartidasUsuario(Integer.parseInt(partes[2])); //Actualizar las partidas al adversario si esta conectado
                             gestorJuego.actualizarRepeticiones(Integer.parseInt(partes[2]));
-                            enviarEntero(10);
-                            enviarEntero(Integer.parseInt(partes[1]));
+                            gestorJuego.usuariosConectados.get(Integer.parseInt(partes[2])).enviarEntero(10);
+                            gestorJuego.usuariosConectados.get(Integer.parseInt(partes[2])).enviarEntero(Integer.parseInt(partes[1]));
                         }
                         break;
 
@@ -130,8 +119,8 @@ public class ConexionCliente implements Runnable{
 
                             if (gestorJuego.usuariosConectados.containsKey(Integer.parseInt(partes[2]))) {
                                 gestorJuego.actualizarPartidasUsuario(Integer.parseInt(partes[2])); //Actualizar las partidas al adversario si esta conectado
-                                enviarEntero(11);
-                                enviarEntero(Integer.parseInt(partes[1]));
+                                gestorJuego.usuariosConectados.get(Integer.parseInt(partes[2])).enviarEntero(11);
+                                gestorJuego.usuariosConectados.get(Integer.parseInt(partes[2])).enviarEntero(Integer.parseInt(partes[1]));
                             }
                         } else {
                             enviarEntero(12);
@@ -141,9 +130,49 @@ public class ConexionCliente implements Runnable{
 
                     case 4:
                         //Capturar ficha
-                        //orden;idPartida;coordenadaXorigen;coordenadaYorigen;coordenadaXdestino;coordenadaYdestino;
-                        /////////////////enviarBoolean(gestorJuego.capturarFicha(Integer.parseInt(partes[1]), getIdUsuario(), datosUsuario.buscarTableroMiTurno(Integer.parseInt(partes[1])), Integer.parseInt(partes[2]), Integer.parseInt(partes[3]), Integer.parseInt(partes[4]), Integer.parseInt(partes[5])));
-                        //////////////datosUsuario.setPartidasNoMiTurno(gestorJuego.devolverPartidasNoMiTurno(getIdUsuario()));
+                        //orden;idPartida;idAversario;coordenadaXorigen;coordenadaYorigen;coordenadaXdestino;coordenadaYdestino;
+                        boolean capturaExitosa = gestorJuego.capturarFicha(
+                                                    gestorJuego.partidasActivas.get(Integer.parseInt(partes[1])),
+                                                    getIdUsuario(),
+                                                    Integer.parseInt(partes[3]),
+                                                    Integer.parseInt(partes[4]),
+                                                    Integer.parseInt(partes[5]),
+                                                    Integer.parseInt(partes[6])
+                                                    );
+                        if (capturaExitosa) {
+                            if (gestorJuego.comprobarVictoria(
+                                    gestorJuego.partidasActivas.get(Integer.parseInt(partes[1])).getTablero(),
+                                    gestorJuego.partidasActivas.get(Integer.parseInt(partes[1])).getColorJugador(getIdUsuario())
+                            )) {
+                                gestorJuego.rendirseEnPartida(Integer.parseInt(partes[1]));
+                                gestorJuego.eliminarPartida(Integer.parseInt(partes[1]));
+                                gestorJuego.cargarPartidasTerminadas();
+                                gestorJuego.actualizarPartidasUsuario(getIdUsuario()); //Actualizar las partidas al jugador
+                                gestorJuego.actualizarRepeticiones(getIdUsuario());
+                                enviarEntero(14);
+                                enviarEntero(gestorJuego.partidasActivas.get(Integer.parseInt(partes[1])).getIdPartida());
+
+                                if (gestorJuego.usuariosConectados.containsKey(Integer.parseInt(partes[2]))) {
+                                    gestorJuego.actualizarPartidasUsuario(Integer.parseInt(partes[2])); //Actualizar las partidas al adversario si esta conectado
+                                    gestorJuego.actualizarRepeticiones(Integer.parseInt(partes[2]));
+                                    gestorJuego.usuariosConectados.get(Integer.parseInt(partes[2])).enviarEntero(15);
+                                    gestorJuego.usuariosConectados.get(Integer.parseInt(partes[2])).enviarEntero(Integer.parseInt(partes[1]));
+                                }
+                            }
+                            gestorJuego.actualizarPartidaServidor(Integer.parseInt(partes[1]));
+                            gestorJuego.actualizarPartidasUsuario(getIdUsuario());
+                            enviarEntero(11);
+                            enviarEntero(Integer.parseInt(partes[1]));
+
+                            if (gestorJuego.usuariosConectados.containsKey(Integer.parseInt(partes[2]))) {
+                                gestorJuego.actualizarPartidasUsuario(Integer.parseInt(partes[2])); //Actualizar las partidas al adversario si esta conectado
+                                gestorJuego.usuariosConectados.get(Integer.parseInt(partes[2])).enviarEntero(11);
+                                gestorJuego.usuariosConectados.get(Integer.parseInt(partes[2])).enviarEntero(Integer.parseInt(partes[1]));
+                            }
+                        } else {
+                            enviarEntero(12);
+                            enviarEntero(Integer.parseInt(partes[1]));
+                        }
                         break;
 
                     default:

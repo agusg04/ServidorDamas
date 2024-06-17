@@ -85,8 +85,9 @@ public class GestorJuego {
         return new Partida(idPartida, movimientosPartida.getIdJugadorBlanco(), movimientosPartida.getIdJugadorNegro(), movimientosPartida.getTurnoActual(), tablero);
     }
 
-    public void aniadirPartidaActiva(int idPartida) {
+    public int aniadirPartidaActiva(int idPartida) {
         partidasActivas.put(idPartida, devolverPartida(idPartida));
+        return idPartida;
     }
 
     public void eliminarPartida(int idPartida) {
@@ -109,6 +110,15 @@ public class GestorJuego {
         if (comprobarTurno(partida, idUsuario) &&
                 comprobarMovimientoLegal(partida.getTablero(), posXini, posYini, posXfin, posYfin, partida.getColorJugador(idUsuario), false)) {
 
+            partidasDAO.insertarMovimientoBD(partida.getIdPartida(), idUsuario, posXini, posYini, posXfin, posYfin);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean capturarFicha(Partida partida, int idUsuario, int posXini, int posYini, int posXfin, int posYfin) {
+        if (comprobarTurno(partida, idUsuario) &&
+                comprobarMovimientoLegal(partida.getTablero(), posXini, posYini, posXfin, posYfin, partida.getColorJugador(idUsuario), true)) {
             partidasDAO.insertarMovimientoBD(partida.getIdPartida(), idUsuario, posXini, posYini, posXfin, posYfin);
             return true;
         }
@@ -158,8 +168,8 @@ public class GestorJuego {
                 (pieza.getColor().equals(ColorPieza.NEGRA) && desplazamientoY == 1);
     }
     private boolean esCapturaAdelante(Pieza pieza, int desplazamientoY) {
-        return (pieza.getColor().equals(ColorPieza.BLANCA) && desplazamientoY == 2) ||
-                (pieza.getColor().equals(ColorPieza.NEGRA) && desplazamientoY == -2);
+        return (pieza.getColor().equals(ColorPieza.BLANCA) && desplazamientoY == -2) ||
+                (pieza.getColor().equals(ColorPieza.NEGRA) && desplazamientoY == 2);
     }
 
     private boolean hayFichasEnCasillasIntermedias(Tablero tablero, int posXini, int posYini, int posXfin, int posYfin) {
@@ -263,7 +273,7 @@ public class GestorJuego {
         return true;
     }
 
-    private boolean comprobarVictoria(Tablero tablero, ColorPieza color) {
+    public boolean comprobarVictoria(Tablero tablero, ColorPieza color) {
         for (int i = 0; i < tablero.getTamanio(); i++) {
             for (int j = 0; j < tablero.getTamanio(); j++) {
                 Pieza pieza = tablero.getPieza(i, j);
