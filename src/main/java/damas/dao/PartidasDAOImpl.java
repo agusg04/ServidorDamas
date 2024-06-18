@@ -78,7 +78,7 @@ public class PartidasDAOImpl implements PartidasDAO {
 			if (rowsAffected == 1) {
 				// La inserción fue exitosa
 				System.out.println("Operación de inserción exitosa.");
-				connection.commit();
+
 			} else {
 				// La inserción no tuvo efecto (ninguna fila afectada)
 				System.out.println("Error en la operación de inserción.");

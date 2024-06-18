@@ -119,6 +119,7 @@ public class GestorJuego {
     public boolean capturarFicha(Partida partida, int idUsuario, int posXini, int posYini, int posXfin, int posYfin) {
         if (comprobarTurno(partida, idUsuario) &&
                 comprobarMovimientoLegal(partida.getTablero(), posXini, posYini, posXfin, posYfin, partida.getColorJugador(idUsuario), true)) {
+
             partidasDAO.insertarMovimientoBD(partida.getIdPartida(), idUsuario, posXini, posYini, posXfin, posYfin);
             return true;
         }
@@ -179,14 +180,22 @@ public class GestorJuego {
         int x = posXini + sentidoX;
         int y = posYini + sentidoY;
 
+        // Asegurarse de que x e y no sean negativos
+        x = Math.max(0, x);
+        y = Math.max(0, y);
+
         // Comprobar que no hay fichas en las casillas intermedias entre la casilla de origen y la casilla de la ficha que va a ser comida o la casilla destino
-        while (x != posXfin - sentidoX || y != posYfin - sentidoY) {
+        while (x != posXfin || y != posYfin) {
             // Si hay una ficha en alguna casilla intermedia, el movimiento no es legal
             if (tablero.getPieza(x, y) != null) return true;
 
             // Mover a la siguiente casilla intermedia
             x += sentidoX;
             y += sentidoY;
+
+            // Asegurarse de que x e y no sean negativos
+            x = Math.max(0, x);
+            y = Math.max(0, y);
         }
         return false;
     }
@@ -196,22 +205,6 @@ public class GestorJuego {
         if (Math.abs(posXfin - posXini) != Math.abs(posYfin - posYini)) return false;
 
         if (hayFichasEnCasillasIntermedias(tablero, posXini, posYini, posXfin, posYfin)) return false;
-
-        //Mover ficha
-        tablero.moverFicha(posXini, posYini, posXfin, posYfin);
-
-        return true;
-    }
-
-    private boolean esMovimientoLegalPiezaNormal(Tablero tablero, Pieza pieza, int posXini, int posYini, int posXfin, int posYfin, int tamanio) {
-        if (Math.abs(posYfin - posYini) != 1) return false;
-
-        int desplazamientoY = posXfin - posXini;
-        if (!esMovimientoAdelante(pieza, desplazamientoY)) return false;
-
-        if ((posYfin == tamanio - 1  && pieza.getColor().equals(ColorPieza.BLANCA) || posYfin == 0 && pieza.getColor().equals(ColorPieza.NEGRA))) {
-            pieza.setEsDama(true);
-        }
 
         //Mover ficha
         tablero.moverFicha(posXini, posYini, posXfin, posYfin);
@@ -244,12 +237,28 @@ public class GestorJuego {
         return true;
     }
 
+    private boolean esMovimientoLegalPiezaNormal(Tablero tablero, Pieza pieza, int posXini, int posYini, int posXfin, int posYfin, int tamanio) {
+        if (Math.abs(posYfin - posYini) != 1) return false; // Saber si se mueve más de una columna
+
+        int desplazamientoY = posXfin - posXini; // Comprobar que solo avanza una fila
+        if (!esMovimientoAdelante(pieza, desplazamientoY)) return false;
+
+        //Mover ficha
+        tablero.moverFicha(posXini, posYini, posXfin, posYfin);
+
+        if ((posXfin == 0 && pieza.getColor().equals(ColorPieza.BLANCA) || posXfin == tamanio - 1 && pieza.getColor().equals(ColorPieza.NEGRA))) {
+            pieza.setEsDama(true);
+        }
+
+        return true;
+    }
+
     private boolean esCapturaLegalPiezaNormal(Tablero tablero, Pieza pieza, int posXini, int posYini, int posXfin, int posYfin, int tamanio) {
         //Comprobar que solo avanza dos casillas en el eje x
         if (Math.abs(posXfin - posXini) != 2) return false;
 
-        //Comprobar que solo avanza dos casillas hacia adelante
-        int desplazamientoY = posYfin - posYini;
+        //Comprobar que solo avanza dos casillas en la dirección correcta
+        int desplazamientoY = posXfin - posXini;
         if (!esCapturaAdelante(pieza, desplazamientoY)) return false;
 
         // Comprobar si hay una ficha a capturar en la posición intermedia
@@ -266,7 +275,7 @@ public class GestorJuego {
         tablero.moverFicha(posXini, posYini, posXfin, posYfin);
 
         //Comprobar si ha llegado al final del tablero para hacerla dama
-        if ((posYfin == tamanio - 1  && pieza.getColor().equals(ColorPieza.BLANCA) || posYfin == 0 && pieza.getColor().equals(ColorPieza.NEGRA))) {
+        if ((posXfin == 0  && pieza.getColor().equals(ColorPieza.BLANCA) || posXfin == tamanio - 1 && pieza.getColor().equals(ColorPieza.NEGRA))) {
             pieza.setEsDama(true);
         }
 
@@ -415,6 +424,11 @@ public class GestorJuego {
 
         // Mover la ficha en el tablero
         tablero.moverFicha(origenX, origenY, destinoX, destinoY);
+
+        if (destinoX == 0 && tablero.getPieza(destinoX, destinoY).getColor() == ColorPieza.BLANCA
+                || destinoX == tablero.getTamanio() - 1 && tablero.getPieza(destinoX, destinoY).getColor() == ColorPieza.NEGRA) {
+            tablero.getPieza(destinoX, destinoY).setEsDama(true);
+        }
 
         eliminarFichasIntermedias(tablero, origenX, origenY, destinoX, destinoY);
     }

@@ -156,13 +156,13 @@ public class ConexionCliente implements Runnable{
                                 enviarEntero(11); // Actualizar el tablero
                                 enviarEntero(Integer.parseInt(partes[1]));
                                 enviarEntero(14); // Enviar mensaje de que ha ganado
-                                enviarEntero(gestorJuego.partidasActivas.get(Integer.parseInt(partes[1])).getIdPartida());
+                                //enviarEntero(gestorJuego.partidasActivas.get(Integer.parseInt(partes[1])).getIdPartida());
 
                                 if (gestorJuego.usuariosConectados.containsKey(idAdversarioCaptura)) { // Si el adversario está conectado
                                     gestorJuego.actualizarPartidasUsuario(idAdversarioCaptura); // Actualizar las partidas al adversario si está conectado
                                     gestorJuego.actualizarRepeticiones(idAdversarioCaptura); // Actualizar las repeticiones al adversario si está conectado
                                     gestorJuego.usuariosConectados.get(idAdversarioCaptura).enviarEntero(15); // Enviar mensaje de que ha perdido
-                                    gestorJuego.usuariosConectados.get(idAdversarioCaptura).enviarEntero(Integer.parseInt(partes[1]));
+                                    //gestorJuego.usuariosConectados.get(idAdversarioCaptura).enviarEntero(Integer.parseInt(partes[1]));
                                 }
                             }
                             // Si no ha ganado
